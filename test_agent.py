@@ -16,10 +16,10 @@ from torch.distributions import Categorical
 import threading
 from functools import reduce
 
-from knowledge_graph import KnowledgeGraph
-from kg_env import BatchKGEnvironment
-from train_agent import ActorCritic
-from utils import *
+from .knowledge_graph import KnowledgeGraph
+from .kg_env import BatchKGEnvironment
+from .train_agent import ActorCritic
+from .utils import *
 
 
 def evaluate(topk_matches, test_user_products):
@@ -43,12 +43,12 @@ def evaluate(topk_matches, test_user_products):
         hit_num = 0.0
         for i in range(len(pred_list)):
             if pred_list[i] in rel_set:
-                dcg += 1. / (log(i + 2) / log(2))
+                dcg += 1.0 / (log(i + 2) / log(2))
                 hit_num += 1
         # idcg
         idcg = 0.0
         for i in range(min(len(rel_set), len(pred_list))):
-            idcg += 1. / (log(i + 2) / log(2))
+            idcg += 1.0 / (log(i + 2) / log(2))
         ndcg = dcg / idcg
         recall = hit_num / len(rel_set)
         precision = hit_num / len(pred_list)
@@ -63,8 +63,11 @@ def evaluate(topk_matches, test_user_products):
     avg_recall = np.mean(recalls) * 100
     avg_ndcg = np.mean(ndcgs) * 100
     avg_hit = np.mean(hits) * 100
-    print('NDCG={:.3f} |  Recall={:.3f} | HR={:.3f} | Precision={:.3f} | Invalid users={}'.format(
-            avg_ndcg, avg_recall, avg_hit, avg_precision, len(invalid_users)))
+    print(
+        "NDCG={:.3f} |  Recall={:.3f} | HR={:.3f} | Precision={:.3f} | Invalid users={}".format(
+            avg_ndcg, avg_recall, avg_hit, avg_precision, len(invalid_users)
+        )
+    )
 
 
 def batch_beam_search(env, model, uids, device, topk=[25, 5, 1]):
@@ -88,7 +91,9 @@ def batch_beam_search(env, model, uids, device, topk=[25, 5, 1]):
         actmask_tensor = torch.ByteTensor(actmask_pool).to(device)
         probs, _ = model((state_tensor, actmask_tensor))  # Tensor of [bs, act_dim]
         probs = probs + actmask_tensor.float()  # In order to differ from masked actions
-        topk_probs, topk_idxs = torch.topk(probs, topk[hop], dim=1)  # LongTensor of [bs, k]
+        topk_probs, topk_idxs = torch.topk(
+            probs, topk[hop], dim=1
+        )  # LongTensor of [bs, k]
         topk_idxs = topk_idxs.detach().cpu().numpy()
         topk_probs = topk_probs.detach().cpu().numpy()
 
@@ -116,15 +121,22 @@ def batch_beam_search(env, model, uids, device, topk=[25, 5, 1]):
 
 
 def predict_paths(policy_file, path_file, args):
-    print('Predicting paths...')
-    env = BatchKGEnvironment(args.dataset, args.max_acts, max_path_len=args.max_path_len, state_history=args.state_history)
+    print("Predicting paths...")
+    env = BatchKGEnvironment(
+        args.dataset,
+        args.max_acts,
+        max_path_len=args.max_path_len,
+        state_history=args.state_history,
+    )
     pretrain_sd = torch.load(policy_file)
-    model = ActorCritic(env.state_dim, env.act_dim, gamma=args.gamma, hidden_sizes=args.hidden).to(args.device)
+    model = ActorCritic(
+        env.state_dim, env.act_dim, gamma=args.gamma, hidden_sizes=args.hidden
+    ).to(args.device)
     model_sd = model.state_dict()
     model_sd.update(pretrain_sd)
     model.load_state_dict(model_sd)
 
-    test_labels = load_labels(args.dataset, 'test')
+    test_labels = load_labels(args.dataset, "test")
     test_uids = list(test_labels.keys())
 
     batch_size = 16
@@ -134,13 +146,15 @@ def predict_paths(policy_file, path_file, args):
     while start_idx < len(test_uids):
         end_idx = min(start_idx + batch_size, len(test_uids))
         batch_uids = test_uids[start_idx:end_idx]
-        paths, probs = batch_beam_search(env, model, batch_uids, args.device, topk=args.topk)
+        paths, probs = batch_beam_search(
+            env, model, batch_uids, args.device, topk=args.topk
+        )
         all_paths.extend(paths)
         all_probs.extend(probs)
         start_idx = end_idx
         pbar.update(batch_size)
-    predicts = {'paths': all_paths, 'probs': all_probs}
-    pickle.dump(predicts, open(path_file, 'wb'))
+    predicts = {"paths": all_paths, "probs": all_probs}
+    pickle.dump(predicts, open(path_file, "wb"))
 
 
 def evaluate_paths(path_file, train_labels, test_labels):
@@ -151,9 +165,9 @@ def evaluate_paths(path_file, train_labels, test_labels):
     scores = np.dot(user_embeds + purchase_embeds, product_embeds.T)
 
     # 1) Get all valid paths for each user, compute path score and path probability.
-    results = pickle.load(open(path_file, 'rb'))
+    results = pickle.load(open(path_file, "rb"))
     pred_paths = {uid: {} for uid in test_labels}
-    for path, probs in zip(results['paths'], results['probs']):
+    for path, probs in zip(results["paths"], results["probs"]):
         if path[-1][1] != PRODUCT:
             continue
         uid = path[0][2]
@@ -179,14 +193,20 @@ def evaluate_paths(path_file, train_labels, test_labels):
             best_pred_paths[uid].append(sorted_path[0])
 
     # 3) Compute top 10 recommended products for each user.
-    sort_by = 'score'
+    sort_by = "score"
     pred_labels = {}
     for uid in best_pred_paths:
-        if sort_by == 'score':
-            sorted_path = sorted(best_pred_paths[uid], key=lambda x: (x[0], x[1]), reverse=True)
-        elif sort_by == 'prob':
-            sorted_path = sorted(best_pred_paths[uid], key=lambda x: (x[1], x[0]), reverse=True)
-        top10_pids = [p[-1][2] for _, _, p in sorted_path[:10]]  # from largest to smallest
+        if sort_by == "score":
+            sorted_path = sorted(
+                best_pred_paths[uid], key=lambda x: (x[0], x[1]), reverse=True
+            )
+        elif sort_by == "prob":
+            sorted_path = sorted(
+                best_pred_paths[uid], key=lambda x: (x[1], x[0]), reverse=True
+            )
+        top10_pids = [
+            p[-1][2] for _, _, p in sorted_path[:10]
+        ]  # from largest to smallest
         # add up to 10 pids if not enough
         if args.add_products and len(top10_pids) < 10:
             train_pids = set(train_labels[uid])
@@ -204,11 +224,11 @@ def evaluate_paths(path_file, train_labels, test_labels):
 
 
 def test(args):
-    policy_file = args.log_dir + '/policy_model_epoch_{}.ckpt'.format(args.epochs)
-    path_file = args.log_dir + '/policy_paths_epoch{}.pkl'.format(args.epochs)
+    policy_file = args.log_dir + "/policy_model_epoch_{}.ckpt".format(args.epochs)
+    path_file = args.log_dir + "/policy_paths_epoch{}.pkl".format(args.epochs)
 
-    train_labels = load_labels(args.dataset, 'train')
-    test_labels = load_labels(args.dataset, 'test')
+    train_labels = load_labels(args.dataset, "train")
+    test_labels = load_labels(args.dataset, "test")
 
     if args.run_path:
         predict_paths(policy_file, path_file, args)
@@ -216,28 +236,53 @@ def test(args):
         evaluate_paths(path_file, train_labels, test_labels)
 
 
-if __name__ == '__main__':
-    boolean = lambda x: (str(x).lower() == 'true')
+if __name__ == "__main__":
+    boolean = lambda x: (str(x).lower() == "true")
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str, default=BEAUTY, help='One of {cloth, beauty, cell, cd}')
-    parser.add_argument('--name', type=str, default='train_agent', help='directory name.')
-    parser.add_argument('--seed', type=int, default=123, help='random seed.')
-    parser.add_argument('--gpu', type=str, default='0', help='gpu device.')
-    parser.add_argument('--epochs', type=int, default=50, help='num of epochs.')
-    parser.add_argument('--max_acts', type=int, default=250, help='Max number of actions.')
-    parser.add_argument('--max_path_len', type=int, default=3, help='Max path length.')
-    parser.add_argument('--gamma', type=float, default=0.99, help='reward discount factor.')
-    parser.add_argument('--state_history', type=int, default=1, help='state history length')
-    parser.add_argument('--hidden', type=int, nargs='*', default=[512, 256], help='number of samples')
-    parser.add_argument('--add_products', type=boolean, default=False, help='Add predicted products up to 10')
-    parser.add_argument('--topk', type=int, nargs='*', default=[25, 5, 1], help='number of samples')
-    parser.add_argument('--run_path', type=boolean, default=True, help='Generate predicted path? (takes long time)')
-    parser.add_argument('--run_eval', type=boolean, default=True, help='Run evaluation?')
+    parser.add_argument(
+        "--dataset", type=str, default=BEAUTY, help="One of {cloth, beauty, cell, cd}"
+    )
+    parser.add_argument(
+        "--name", type=str, default="train_agent", help="directory name."
+    )
+    parser.add_argument("--seed", type=int, default=123, help="random seed.")
+    parser.add_argument("--gpu", type=str, default="0", help="gpu device.")
+    parser.add_argument("--epochs", type=int, default=50, help="num of epochs.")
+    parser.add_argument(
+        "--max_acts", type=int, default=250, help="Max number of actions."
+    )
+    parser.add_argument("--max_path_len", type=int, default=3, help="Max path length.")
+    parser.add_argument(
+        "--gamma", type=float, default=0.99, help="reward discount factor."
+    )
+    parser.add_argument(
+        "--state_history", type=int, default=1, help="state history length"
+    )
+    parser.add_argument(
+        "--hidden", type=int, nargs="*", default=[512, 256], help="number of samples"
+    )
+    parser.add_argument(
+        "--add_products",
+        type=boolean,
+        default=False,
+        help="Add predicted products up to 10",
+    )
+    parser.add_argument(
+        "--topk", type=int, nargs="*", default=[25, 5, 1], help="number of samples"
+    )
+    parser.add_argument(
+        "--run_path",
+        type=boolean,
+        default=True,
+        help="Generate predicted path? (takes long time)",
+    )
+    parser.add_argument(
+        "--run_eval", type=boolean, default=True, help="Run evaluation?"
+    )
     args = parser.parse_args()
 
-    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
-    args.device = torch.device('cuda:0') if torch.cuda.is_available() else 'cpu'
+    os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
+    args.device = torch.device("cuda:0") if torch.cuda.is_available() else "cpu"
 
-    args.log_dir = TMP_DIR[args.dataset] + '/' + args.name
+    args.log_dir = TMP_DIR[args.dataset] + "/" + args.name
     test(args)
-

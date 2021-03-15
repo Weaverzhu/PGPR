@@ -8,8 +8,8 @@ import random
 import torch
 from datetime import datetime
 
-from knowledge_graph import KnowledgeGraph
-from utils import *
+from .knowledge_graph import KnowledgeGraph
+from .utils import *
 
 
 class KGState(object):
@@ -23,19 +23,36 @@ class KGState(object):
         elif history_len == 2:
             self.dim = 6 * embed_size
         else:
-            raise Exception('history length should be one of {0, 1, 2}')
+            raise Exception("history length should be one of {0, 1, 2}")
 
-    def __call__(self, user_embed, node_embed, last_node_embed, last_relation_embed, older_node_embed,
-                 older_relation_embed):
+    def __call__(
+        self,
+        user_embed,
+        node_embed,
+        last_node_embed,
+        last_relation_embed,
+        older_node_embed,
+        older_relation_embed,
+    ):
         if self.history_len == 0:
             return np.concatenate([user_embed, node_embed])
         elif self.history_len == 1:
-            return np.concatenate([user_embed, node_embed, last_node_embed, last_relation_embed])
+            return np.concatenate(
+                [user_embed, node_embed, last_node_embed, last_relation_embed]
+            )
         elif self.history_len == 2:
-            return np.concatenate([user_embed, node_embed, last_node_embed, last_relation_embed, older_node_embed,
-                                   older_relation_embed])
+            return np.concatenate(
+                [
+                    user_embed,
+                    node_embed,
+                    last_node_embed,
+                    last_relation_embed,
+                    older_node_embed,
+                    older_relation_embed,
+                ]
+            )
         else:
-            raise Exception('mode should be one of {full, current}')
+            raise Exception("mode should be one of {full, current}")
 
 
 class BatchKGEnvironment(object):
@@ -51,14 +68,18 @@ class BatchKGEnvironment(object):
         self.state_dim = self.state_gen.dim
 
         # Compute user-product scores for scaling.
-        u_p_scores = np.dot(self.embeds[USER] + self.embeds[PURCHASE][0], self.embeds[PRODUCT].T)
+        u_p_scores = np.dot(
+            self.embeds[USER] + self.embeds[PURCHASE][0], self.embeds[PRODUCT].T
+        )
         self.u_p_scales = np.max(u_p_scores, axis=1)
 
         # Compute path patterns
         self.patterns = []
         for pattern_id in [1, 11, 12, 13, 14, 15, 16, 17, 18]:
             pattern = PATH_PATTERN[pattern_id]
-            pattern = [SELF_LOOP] + [v[0] for v in pattern[1:]]  # pattern contains all relations
+            pattern = [SELF_LOOP] + [
+                v[0] for v in pattern[1:]
+            ]  # pattern contains all relations
             if pattern_id == 1:
                 pattern.append(SELF_LOOP)
             self.patterns.append(tuple(pattern))
@@ -95,7 +116,9 @@ class BatchKGEnvironment(object):
         for r in relations_nodes:
             next_node_type = KG_RELATION[curr_node_type][r]
             next_node_ids = relations_nodes[r]
-            next_node_ids = [n for n in next_node_ids if (next_node_type, n) not in visited_nodes]  # filter
+            next_node_ids = [
+                n for n in next_node_ids if (next_node_type, n) not in visited_nodes
+            ]  # filter
             candidate_acts.extend(zip([r] * len(next_node_ids), next_node_ids))
 
         # (3) If candidate action set is empty, only return self-loop action.
@@ -127,8 +150,12 @@ class BatchKGEnvironment(object):
             # if next_node_type == PRODUCT and next_node_id in self._target_pids:
             #    score = 99999.0
             scores.append(score)
-        candidate_idxs = np.argsort(scores)[-self.max_acts:]  # choose actions with larger scores
-        candidate_acts = sorted([candidate_acts[i] for i in candidate_idxs], key=lambda x: (x[0], x[1]))
+        candidate_idxs = np.argsort(scores)[
+            -self.max_acts :
+        ]  # choose actions with larger scores
+        candidate_acts = sorted(
+            [candidate_acts[i] for i in candidate_idxs], key=lambda x: (x[0], x[1])
+        )
         actions.extend(candidate_acts)
         return actions
 
@@ -140,7 +167,9 @@ class BatchKGEnvironment(object):
         user_embed = self.embeds[USER][path[0][-1]]
         zero_embed = np.zeros(self.embed_size)
         if len(path) == 1:  # initial state
-            state = self.state_gen(user_embed, user_embed, zero_embed, zero_embed, zero_embed, zero_embed)
+            state = self.state_gen(
+                user_embed, user_embed, zero_embed, zero_embed, zero_embed, zero_embed
+            )
             return state
 
         older_relation, last_node_type, last_node_id = path[-2]
@@ -149,15 +178,27 @@ class BatchKGEnvironment(object):
         last_node_embed = self.embeds[last_node_type][last_node_id]
         last_relation_embed, _ = self.embeds[last_relation]  # this can be self-loop!
         if len(path) == 2:
-            state = self.state_gen(user_embed, curr_node_embed, last_node_embed, last_relation_embed, zero_embed,
-                                   zero_embed)
+            state = self.state_gen(
+                user_embed,
+                curr_node_embed,
+                last_node_embed,
+                last_relation_embed,
+                zero_embed,
+                zero_embed,
+            )
             return state
 
         _, older_node_type, older_node_id = path[-3]
         older_node_embed = self.embeds[older_node_type][older_node_id]
         older_relation_embed, _ = self.embeds[older_relation]
-        state = self.state_gen(user_embed, curr_node_embed, last_node_embed, last_relation_embed, older_node_embed,
-                               older_relation_embed)
+        state = self.state_gen(
+            user_embed,
+            curr_node_embed,
+            last_node_embed,
+            last_relation_embed,
+            older_node_embed,
+            older_relation_embed,
+        )
         return state
 
     def _batch_get_state(self, batch_path):
@@ -251,8 +292,7 @@ class BatchKGEnvironment(object):
 
     def print_path(self):
         for path in self._batch_path:
-            msg = 'Path: {}({})'.format(path[0][1], path[0][2])
+            msg = "Path: {}({})".format(path[0][1], path[0][2])
             for node in path[1:]:
-                msg += ' =={}=> {}({})'.format(node[0], node[1], node[2])
+                msg += " =={}=> {}({})".format(node[0], node[1], node[2])
             print(msg)
-
