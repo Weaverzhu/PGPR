@@ -9,58 +9,59 @@ import numpy as np
 import scipy.sparse as sp
 from sklearn.feature_extraction.text import TfidfTransformer
 import torch
+import os
 
 
 # Dataset names.
-BEAUTY = 'beauty'
-CELL = 'cell'
-CLOTH = 'cloth'
-CD = 'cd'
+BEAUTY = "beauty"
+CELL = "cell"
+CLOTH = "cloth"
+CD = "cd"
 
 # Dataset directories.
 DATASET_DIR = {
-    BEAUTY: './data/Amazon_Beauty',
-    CELL: './data/Amazon_Cellphones',
-    CLOTH: './data/Amazon_Clothing',
-    CD: './data/Amazon_CDs',
+    BEAUTY: "./data/Amazon_Beauty",
+    CELL: "./data/Amazon_Cellphones",
+    CLOTH: "./data/Amazon_Clothing",
+    CD: "./data/Amazon_CDs",
 }
 
 # Model result directories.
 TMP_DIR = {
-    BEAUTY: './tmp/Amazon_Beauty',
-    CELL: './tmp/Amazon_Cellphones',
-    CLOTH: './tmp/Amazon_Clothing',
-    CD: './tmp/Amazon_CDs',
+    BEAUTY: "./tmp/Amazon_Beauty",
+    CELL: "./tmp/Amazon_Cellphones",
+    CLOTH: "./tmp/Amazon_Clothing",
+    CD: "./tmp/Amazon_CDs",
 }
 
 # Label files.
 LABELS = {
-    BEAUTY: (TMP_DIR[BEAUTY] + '/train_label.pkl', TMP_DIR[BEAUTY] + '/test_label.pkl'),
-    CLOTH: (TMP_DIR[CLOTH] + '/train_label.pkl', TMP_DIR[CLOTH] + '/test_label.pkl'),
-    CELL: (TMP_DIR[CELL] + '/train_label.pkl', TMP_DIR[CELL] + '/test_label.pkl'),
-    CD: (TMP_DIR[CD] + '/train_label.pkl', TMP_DIR[CD] + '/test_label.pkl')
+    BEAUTY: (TMP_DIR[BEAUTY] + "/train_label.pkl", TMP_DIR[BEAUTY] + "/test_label.pkl"),
+    CLOTH: (TMP_DIR[CLOTH] + "/train_label.pkl", TMP_DIR[CLOTH] + "/test_label.pkl"),
+    CELL: (TMP_DIR[CELL] + "/train_label.pkl", TMP_DIR[CELL] + "/test_label.pkl"),
+    CD: (TMP_DIR[CD] + "/train_label.pkl", TMP_DIR[CD] + "/test_label.pkl"),
 }
 
 
 # Entities
-USER = 'user'
-PRODUCT = 'product'
-WORD = 'word'
-RPRODUCT = 'related_product'
-BRAND = 'brand'
-CATEGORY = 'category'
+USER = "user"
+PRODUCT = "product"
+WORD = "word"
+RPRODUCT = "related_product"
+BRAND = "brand"
+CATEGORY = "category"
 
 
 # Relations
-PURCHASE = 'purchase'
-MENTION = 'mentions'
-DESCRIBED_AS = 'described_as'
-PRODUCED_BY = 'produced_by'
-BELONG_TO = 'belongs_to'
-ALSO_BOUGHT = 'also_bought'
-ALSO_VIEWED = 'also_viewed'
-BOUGHT_TOGETHER = 'bought_together'
-SELF_LOOP = 'self_loop'  # only for kg env
+PURCHASE = "purchase"
+MENTION = "mentions"
+DESCRIBED_AS = "described_as"
+PRODUCED_BY = "produced_by"
+BELONG_TO = "belongs_to"
+ALSO_BOUGHT = "also_bought"
+ALSO_VIEWED = "also_viewed"
+BOUGHT_TOGETHER = "bought_together"
+SELF_LOOP = "self_loop"  # only for kg env
 
 KG_RELATION = {
     USER: {
@@ -90,7 +91,7 @@ KG_RELATION = {
         ALSO_BOUGHT: PRODUCT,
         ALSO_VIEWED: PRODUCT,
         BOUGHT_TOGETHER: PRODUCT,
-    }
+    },
 }
 
 
@@ -99,12 +100,42 @@ PATH_PATTERN = {
     1: ((None, USER), (MENTION, WORD), (DESCRIBED_AS, PRODUCT)),
     # length = 4
     11: ((None, USER), (PURCHASE, PRODUCT), (PURCHASE, USER), (PURCHASE, PRODUCT)),
-    12: ((None, USER), (PURCHASE, PRODUCT), (DESCRIBED_AS, WORD), (DESCRIBED_AS, PRODUCT)),
-    13: ((None, USER), (PURCHASE, PRODUCT), (PRODUCED_BY, BRAND), (PRODUCED_BY, PRODUCT)),
-    14: ((None, USER), (PURCHASE, PRODUCT), (BELONG_TO, CATEGORY), (BELONG_TO, PRODUCT)),
-    15: ((None, USER), (PURCHASE, PRODUCT), (ALSO_BOUGHT, RPRODUCT), (ALSO_BOUGHT, PRODUCT)),
-    16: ((None, USER), (PURCHASE, PRODUCT), (ALSO_VIEWED, RPRODUCT), (ALSO_VIEWED, PRODUCT)),
-    17: ((None, USER), (PURCHASE, PRODUCT), (BOUGHT_TOGETHER, RPRODUCT), (BOUGHT_TOGETHER, PRODUCT)),
+    12: (
+        (None, USER),
+        (PURCHASE, PRODUCT),
+        (DESCRIBED_AS, WORD),
+        (DESCRIBED_AS, PRODUCT),
+    ),
+    13: (
+        (None, USER),
+        (PURCHASE, PRODUCT),
+        (PRODUCED_BY, BRAND),
+        (PRODUCED_BY, PRODUCT),
+    ),
+    14: (
+        (None, USER),
+        (PURCHASE, PRODUCT),
+        (BELONG_TO, CATEGORY),
+        (BELONG_TO, PRODUCT),
+    ),
+    15: (
+        (None, USER),
+        (PURCHASE, PRODUCT),
+        (ALSO_BOUGHT, RPRODUCT),
+        (ALSO_BOUGHT, PRODUCT),
+    ),
+    16: (
+        (None, USER),
+        (PURCHASE, PRODUCT),
+        (ALSO_VIEWED, RPRODUCT),
+        (ALSO_VIEWED, PRODUCT),
+    ),
+    17: (
+        (None, USER),
+        (PURCHASE, PRODUCT),
+        (BOUGHT_TOGETHER, RPRODUCT),
+        (BOUGHT_TOGETHER, PRODUCT),
+    ),
     18: ((None, USER), (MENTION, WORD), (MENTION, USER), (PURCHASE, PRODUCT)),
 }
 
@@ -142,7 +173,9 @@ def compute_tfidf_fast(vocab, docs):
         indices.extend(term_count.keys())
         data.extend(term_count.values())
         indptr.append(len(indices))
-    tf = sp.csr_matrix((data, indices, indptr), dtype=int, shape=(len(docs), len(vocab)))
+    tf = sp.csr_matrix(
+        (data, indices, indptr), dtype=int, shape=(len(docs), len(vocab))
+    )
 
     # (2) Compute normalized tfidf for each term/doc.
     transformer = TfidfTransformer(smooth_idf=True)
@@ -153,11 +186,11 @@ def compute_tfidf_fast(vocab, docs):
 def get_logger(logname):
     logger = logging.getLogger(logname)
     logger.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('[%(levelname)s]  %(message)s')
+    formatter = logging.Formatter("[%(levelname)s]  %(message)s")
     ch = logging.StreamHandler(sys.stdout)
     ch.setFormatter(formatter)
     logger.addHandler(ch)
-    fh = logging.handlers.RotatingFileHandler(logname, mode='w')
+    fh = logging.handlers.RotatingFileHandler(logname, mode="w")
     fh.setFormatter(formatter)
     logger.addHandler(fh)
     return logger
@@ -172,58 +205,61 @@ def set_random_seed(seed):
 
 
 def save_dataset(dataset, dataset_obj):
-    dataset_file = TMP_DIR[dataset] + '/dataset.pkl'
-    with open(dataset_file, 'wb') as f:
-        pickle.dump(dataset_obj, f)
+    dataset_file = TMP_DIR[dataset] + "/dataset.pkl"
+    if not os.path.exists(dataset_file):
+        with open(dataset_file, "wb") as f:
+            pickle.dump(dataset_obj, f)
 
 
 def load_dataset(dataset):
-    dataset_file = TMP_DIR[dataset] + '/dataset.pkl'
-    dataset_obj = pickle.load(open(dataset_file, 'rb'))
+    dataset_file = TMP_DIR[dataset] + "/dataset.pkl"
+    dataset_obj = pickle.load(open(dataset_file, "rb"))
     return dataset_obj
 
 
-def save_labels(dataset, labels, mode='train'):
-    if mode == 'train':
+def save_labels(dataset, labels, mode="train"):
+    if mode == "train":
         label_file = LABELS[dataset][0]
-    elif mode == 'test':
+    elif mode == "test":
         label_file = LABELS[dataset][1]
     else:
-        raise Exception('mode should be one of {train, test}.')
-    with open(label_file, 'wb') as f:
-        pickle.dump(labels, f)
+        raise Exception("mode should be one of {train, test}.")
+    if not os.path.exists(label_file):
+        with open(label_file, "wb") as f:
+            pickle.dump(labels, f)
 
 
-def load_labels(dataset, mode='train'):
-    if mode == 'train':
+def load_labels(dataset, mode="train"):
+    if mode == "train":
         label_file = LABELS[dataset][0]
-    elif mode == 'test':
+    elif mode == "test":
         label_file = LABELS[dataset][1]
     else:
-        raise Exception('mode should be one of {train, test}.')
-    user_products = pickle.load(open(label_file, 'rb'))
+        raise Exception("mode should be one of {train, test}.")
+    user_products = pickle.load(open(label_file, "rb"))
     return user_products
 
 
 def save_embed(dataset, embed):
-    embed_file = '{}/transe_embed.pkl'.format(TMP_DIR[dataset])
-    pickle.dump(embed, open(embed_file, 'wb'))
+    embed_file = "{}/transe_embed.pkl".format(TMP_DIR[dataset])
+    if not os.path.exists(embed_file):
+        pickle.dump(embed, open(embed_file, "wb"))
 
 
 def load_embed(dataset):
-    embed_file = '{}/transe_embed.pkl'.format(TMP_DIR[dataset])
-    print('Load embedding:', embed_file)
-    embed = pickle.load(open(embed_file, 'rb'))
+    embed_file = "{}/transe_embed.pkl".format(TMP_DIR[dataset])
+    print("Load embedding:", embed_file)
+    embed = pickle.load(open(embed_file, "rb"))
     return embed
 
 
 def save_kg(dataset, kg):
-    kg_file = TMP_DIR[dataset] + '/kg.pkl'
-    pickle.dump(kg, open(kg_file, 'wb'))
+    kg_file = TMP_DIR[dataset] + "/kg.pkl"
+    if not os.path.exists(kg_file):
+        pickle.dump(kg, open(kg_file, "wb"))
 
 
 def load_kg(dataset):
-    kg_file = TMP_DIR[dataset] + '/kg.pkl'
-    kg = pickle.load(open(kg_file, 'rb'))
+    kg_file = TMP_DIR[dataset] + "/kg.pkl"
+    kg = pickle.load(open(kg_file, "rb"))
     return kg
-
