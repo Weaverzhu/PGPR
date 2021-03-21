@@ -16,10 +16,15 @@ from torch.distributions import Categorical
 import threading
 from functools import reduce
 
-from .knowledge_graph import KnowledgeGraph
-from .kg_env import BatchKGEnvironment
-from .train_agent import ActorCritic
-from .utils import *
+from knowledge_graph import KnowledgeGraph
+from kg_env import BatchKGEnvironment
+from train_agent import ActorCritic
+from utils import *
+
+source_file_path = os.path.dirname(os.path.abspath(__file__))
+config_file_path = os.path.join(source_file_path, "../config/pgpr.yaml")
+with open(config_file_path, "rb") as f:
+    config = yaml.load(f, yaml.SafeLoader)
 
 
 def evaluate(topk_matches, test_user_products):
@@ -239,9 +244,7 @@ def test(args):
 if __name__ == "__main__":
     boolean = lambda x: (str(x).lower() == "true")
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--dataset", type=str, default=BEAUTY, help="One of {cloth, beauty, cell, cd}"
-    )
+
     parser.add_argument(
         "--name", type=str, default="train_agent", help="directory name."
     )
@@ -280,6 +283,7 @@ if __name__ == "__main__":
         "--run_eval", type=boolean, default=True, help="Run evaluation?"
     )
     args = parser.parse_args()
+    args.dataset = config["dataset"]
 
     args.device = torch.device("cuda") if torch.cuda.is_available() else "cpu"
 

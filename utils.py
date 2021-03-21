@@ -1,22 +1,29 @@
 from __future__ import absolute_import, division, print_function
 
-import sys
-import random
-import pickle
 import logging
 import logging.handlers
+import os
+import pickle
+import random
+import sys
+
 import numpy as np
 import scipy.sparse as sp
-from sklearn.feature_extraction.text import TfidfTransformer
 import torch
-import os
-
+import yaml
+from sklearn.feature_extraction.text import TfidfTransformer
 
 # Dataset names.
 BEAUTY = "beauty"
 CELL = "cell"
 CLOTH = "cloth"
 CD = "cd"
+
+
+source_file_path = os.path.dirname(os.path.abspath(__file__))
+config_file_path = os.path.join(source_file_path, "../config/pgpr.yaml")
+with open(config_file_path, "rb") as f:
+    config = yaml.load(f, yaml.SafeLoader)
 
 # Dataset directories.
 DATASET_DIR = {
@@ -26,6 +33,10 @@ DATASET_DIR = {
     CD: "./data/Amazon_CDs",
 }
 
+if config["use_drive"]:
+    for k in DATASET_DIR.keys():
+        DATASET_DIR[k] = os.path.join(config["dataset_dir"], DATASET_DIR[k])
+
 # Model result directories.
 TMP_DIR = {
     BEAUTY: "./tmp/Amazon_Beauty",
@@ -33,6 +44,10 @@ TMP_DIR = {
     CLOTH: "./tmp/Amazon_Clothing",
     CD: "./tmp/Amazon_CDs",
 }
+
+if config["use_drive"]:
+    for k in TMP_DIR.keys():
+        TMP_DIR[k] = os.path.join(config["tmp_dir"], TMP_DIR[k])
 
 # Label files.
 LABELS = {
@@ -261,5 +276,6 @@ def save_kg(dataset, kg):
 
 def load_kg(dataset):
     kg_file = TMP_DIR[dataset] + "/kg.pkl"
+    print(kg_file)
     kg = pickle.load(open(kg_file, "rb"))
     return kg

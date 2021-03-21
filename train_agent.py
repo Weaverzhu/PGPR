@@ -11,9 +11,9 @@ import torch.optim as optim
 from torch.autograd import Variable
 from torch.distributions import Categorical
 
-from .knowledge_graph import KnowledgeGraph
-from .kg_env import BatchKGEnvironment
-from .utils import *
+from knowledge_graph import KnowledgeGraph
+from kg_env import BatchKGEnvironment
+from utils import *
 
 logger = None
 
@@ -227,12 +227,7 @@ def train(args):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--dataset",
-        type=str,
-        default=BEAUTY,
-        help="One of {clothing, cell, beauty, cd}",
-    )
+
     parser.add_argument(
         "--name", type=str, default="train_agent", help="directory name."
     )
@@ -261,6 +256,7 @@ def main():
         "--hidden", type=int, nargs="*", default=[512, 256], help="number of samples"
     )
     args = parser.parse_args()
+    args.dataset = config["dataset"]
 
     args.device = torch.device("cuda") if torch.cuda.is_available() else "cpu"
 

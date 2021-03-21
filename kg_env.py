@@ -8,8 +8,8 @@ import random
 import torch
 from datetime import datetime
 
-from .knowledge_graph import KnowledgeGraph
-from .utils import *
+from knowledge_graph import KnowledgeGraph
+from utils import *
 
 
 class KGState(object):

@@ -14,8 +14,8 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 import torch
 
-from .utils import *
-from .data_utils import AmazonDataset
+from utils import *
+from data_utils import AmazonDataset
 
 
 class KnowledgeGraph(object):

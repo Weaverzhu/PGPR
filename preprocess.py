@@ -5,9 +5,14 @@ import pickle
 import gzip
 import argparse
 
-from .utils import *
-from .data_utils import AmazonDataset
-from .knowledge_graph import KnowledgeGraph
+from utils import *
+from data_utils import AmazonDataset
+from knowledge_graph import KnowledgeGraph
+
+source_file_path = os.path.dirname(os.path.abspath(__file__))
+config_file_path = os.path.join(source_file_path, "../config/pgpr.yaml")
+with open(config_file_path, "rb") as f:
+    config = yaml.load(f, yaml.SafeLoader)
 
 
 def generate_labels(dataset, mode="train"):
@@ -27,10 +32,9 @@ def generate_labels(dataset, mode="train"):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--dataset", type=str, default=BEAUTY, help="One of {BEAUTY, CELL, CD, CLOTH}."
-    )
+
     args = parser.parse_args()
+    args.dataset = config["dataset"]
 
     # Create AmazonDataset instance for dataset.
     # ========== BEGIN ========== #

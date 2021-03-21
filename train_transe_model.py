@@ -9,10 +9,14 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from .utils import *
-from .data_utils import AmazonDataset, AmazonDataLoader
-from .transe_model import KnowledgeEmbedding
+from utils import *
+from data_utils import AmazonDataset, AmazonDataLoader
+from transe_model import KnowledgeEmbedding
 
+source_file_path = os.path.dirname(os.path.abspath(__file__))
+config_file_path = os.path.join(source_file_path, "../config/pgpr.yaml")
+with open(config_file_path, "rb") as f:
+    config = yaml.load(f, yaml.SafeLoader)
 
 logger = None
 
@@ -120,12 +124,7 @@ def extract_embeddings(args):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--dataset",
-        type=str,
-        default=BEAUTY,
-        help="One of {beauty, cd, cell, clothing}.",
-    )
+
     parser.add_argument(
         "--name", type=str, default="train_transe_model", help="model name."
     )
@@ -156,6 +155,8 @@ def main():
         help="Number of steps for checkpoint.",
     )
     args = parser.parse_args()
+
+    args.dataset = config["dataset"]
 
     args.device = torch.device("cuda") if torch.cuda.is_available() else "cpu"
 
