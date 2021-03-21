@@ -93,7 +93,7 @@ def batch_beam_search(env, model, uids, device, topk=[25, 5, 1]):
         state_tensor = torch.FloatTensor(state_pool).to(device)
         acts_pool = env._batch_get_actions(path_pool, False)  # list of list, size=bs
         actmask_pool = _batch_acts_to_masks(acts_pool)  # numpy of [bs, dim]
-        actmask_tensor = torch.ByteTensor(actmask_pool).to(device)
+        actmask_tensor = torch.BoolTensor(actmask_pool).to(device)
         probs, _ = model((state_tensor, actmask_tensor))  # Tensor of [bs, act_dim]
         probs = probs + actmask_tensor.float()  # In order to differ from masked actions
         topk_probs, topk_idxs = torch.topk(
