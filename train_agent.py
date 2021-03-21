@@ -262,8 +262,7 @@ def main():
     )
     args = parser.parse_args()
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
-    args.device = torch.device("cuda:0") if torch.cuda.is_available() else "cpu"
+    args.device = torch.device("cuda") if torch.cuda.is_available() else "cpu"
 
     args.log_dir = "{}/{}".format(TMP_DIR[args.dataset], args.name)
     if not os.path.isdir(args.log_dir):
