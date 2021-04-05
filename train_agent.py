@@ -253,11 +253,11 @@ def main():
         "--state_history", type=int, default=1, help="state history length"
     )
     parser.add_argument(
-        "--hidden", type=int, nargs="*", default=[512, 256], help="number of samples"
+        "--hidden", type=str, default="[512, 256]", help="number of samples"
     )
     args = parser.parse_args()
     args.dataset = config["dataset"]
-
+    args.hidden = eval(args.hidden)
     args.device = torch.device("cuda") if torch.cuda.is_available() else "cpu"
 
     args.log_dir = "{}/{}".format(TMP_DIR[args.dataset], args.name)
