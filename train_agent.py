@@ -78,14 +78,10 @@ class ActorCritic(nn.Module):
         state_values = self.critic(x)  # Tensor of [bs, 1]
         return act_probs, state_values
 
-    def evaluate(self, inputs):
+    def evaluate(self, inputs, old_action):
         action_probs, state_values = self.forward(inputs)
         dist = Categorical(action_probs)
-        acts = dist.sample()
-        state, mask = inputs
-        valid_idx = mask.gather(1, acts.view(-1, 1)).view(-1)
-        acts[valid_idx == 0] = 0
-        action_logprobs = dist.log_prob(acts)
+        action_logprobs = dist.log_prob(old_action)
 
         dist_entropy = dist.entropy()
 
@@ -241,18 +237,19 @@ class PPO:
             critic_loss = torch.zeros(batch_size).to(device)
             entropy_loss = torch.zeros(batch_size).to(device)
             for i in range(0, num_steps):
-                logprob, value, entropy = self.policy.evaluate(memory.states[i])
+                logprob, value, entropy = self.policy.evaluate(
+                    memory.states[i], memory.actions[i]
+                )
 
                 advantage = batch_rewards[:, i] - value.squeeze(1)
                 old_log_prob = memory.logprobs[i]
                 ratios = torch.exp(logprob - old_log_prob.detach())
 
-                surr1 = ratios * advantage
+                surr1 = ratios * advantage.detach()
                 surr2 = (
                     torch.clamp(ratios, 1 - self.eps_clip, 1 + self.eps_clip)
-                    * advantage
+                    * advantage.detach()
                 )
-                # print(surr1.shape, surr2.shape, actor_loss.shape)
                 actor_loss += -torch.min(surr1, surr2)
                 critic_loss += advantage.pow(2)  # Tensor of [bs, ]
                 entropy_loss += -entropy  # Tensor of [bs, ]
@@ -313,15 +310,16 @@ def ppo_train(args):
     step = 0
     ppo_model.policy.train()
     ppo_model.policy_old.train()
-    memory = Memory()
     optimizer = torch.optim.Adam(ppo_model.policy.parameters(), lr=args.lr)
 
     for i_epoch in range(1, args.epochs + 1):
         dataloader.reset()
+        memory = Memory()
         while dataloader.has_next():
             batch_uids = dataloader.get_batch()
             batch_state = env.reset(batch_uids)
-
+            # if len(batch_uids) != args.batch_size:
+            #     continue
             done = False
             while not done:
                 batch_act_mask = env.batch_action_mask(dropout=args.act_dropout)
@@ -333,7 +331,6 @@ def ppo_train(args):
                 batch_state, batch_reward, done = env.batch_step(batch_action)
 
                 memory.rewards.append(batch_reward)
-                memory.is_terminals.append(done)
 
             lr = args.lr * max(
                 1e-4, 1.0 - float(step) / (args.epochs * len(uids) / args.batch_size)
@@ -345,6 +342,7 @@ def ppo_train(args):
             loss, ploss, vloss, eloss = ppo_model.update(
                 optimizer, args.ent_weight, memory
             )
+            memory.clear_memory()
 
             total_losses.append(loss)
             total_plosses.append(ploss)
@@ -352,7 +350,7 @@ def ppo_train(args):
             total_entropy.append(eloss)
             step += 1
 
-            if step > 0 and step % 100 == 0:
+            if step > 0 and step % args.step == 0:
                 avg_reward = np.mean(total_rewards) / args.batch_size
                 avg_loss = np.mean(total_losses)
                 avg_ploss = np.mean(total_plosses)
@@ -374,7 +372,7 @@ def ppo_train(args):
                     + " | reward={:.5f}".format(avg_reward)
                 )
 
-        policy_file = "{}/policy_model_epoch_{}.ckpt".format(args.log_dir, epoch)
+        policy_file = "{}/policy_model_epoch_{}.ckpt".format(args.log_dir, i_epoch)
         logger.info("Save model to " + policy_file)
         torch.save(ppo_model.policy.state_dict(), policy_file)
 
