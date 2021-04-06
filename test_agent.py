@@ -262,7 +262,7 @@ if __name__ == "__main__":
         "--state_history", type=int, default=1, help="state history length"
     )
     parser.add_argument(
-        "--hidden", type=int, nargs="*", default=[512, 256], help="number of samples"
+        "--hidden", type=str, default="[512, 256]", help="number of samples"
     )
     parser.add_argument(
         "--add_products",
@@ -283,7 +283,11 @@ if __name__ == "__main__":
         "--run_eval", type=boolean, default=True, help="Run evaluation?"
     )
     args = parser.parse_args()
-    args.dataset = config["dataset"]
+    args.hidden = eval(args.hidden)
+    for k in config:
+        v = config[k]
+        if v is not None:
+            setattr(args, k, v)
 
     args.device = torch.device("cuda") if torch.cuda.is_available() else "cpu"
 
