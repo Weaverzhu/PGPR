@@ -9,6 +9,12 @@ from utils import *
 from data_utils import AmazonDataset
 from knowledge_graph import KnowledgeGraph
 
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+import nltk
+
+nltk.download("vader_lexicon")
+
+
 source_file_path = os.path.dirname(os.path.abspath(__file__))
 config_file_path = os.path.join(source_file_path, "../config/pgpr.yaml")
 with open(config_file_path, "rb") as f:
@@ -28,6 +34,34 @@ def generate_labels(dataset, mode="train"):
                 user_products[user_idx] = []
             user_products[user_idx].append(product_idx)
     save_labels(dataset, user_products, mode=mode)
+
+
+def generate_review_scores(dataset, mode="train"):
+    review_file = "{}/{}.txt.gz".format(DATASET_DIR[dataset], mode)
+    vocab_file = "{}/{}.txt.gz".format(DATASET_DIR[dataset], "vocab")
+    with gzip.open(vocab_file, "r") as f:
+        vocab_list = list(
+            map(str, [line.strip().decode("utf-8") for line in f.readlines()])
+        )
+    user_products = {}
+    log_cnt = 0
+
+    sid = SentimentIntensityAnalyzer()
+    ret = []
+    with gzip.open(review_file, "r") as f:
+        for line in f:
+            line = line.decode("utf-8").strip()
+            arr = line.split("\t")
+            user_idx = int(arr[0])
+            product_idx = int(arr[1])
+
+            review_idxs = list(map(int, arr[2].split()))
+            review_words = [vocab_list[i] for i in review_idxs]
+            sentence = " ".join(review_words)
+
+            ss = sid.polarity_scores(sentence)
+            ret.append((user_idx, product_idx, ss["pos"] - ss["neg"]))
+    return ret
 
 
 def main():

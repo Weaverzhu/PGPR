@@ -9,7 +9,11 @@ import torch
 from datetime import datetime
 
 from knowledge_graph import KnowledgeGraph
+from preprocess import generate_review_scores
 from utils import *
+import time
+
+logger = None
 
 
 class KGState(object):
@@ -56,7 +60,14 @@ class KGState(object):
 
 
 class BatchKGEnvironment(object):
-    def __init__(self, dataset_str, max_acts, max_path_len=3, state_history=1):
+    def __init__(
+        self,
+        dataset_str,
+        max_acts,
+        max_path_len=3,
+        state_history=1,
+        review_score_weight=1.0,
+    ):
         self.max_acts = max_acts
         self.act_dim = max_acts + 1  # Add self-loop action, whose act_idx is always 0.
         self.max_num_nodes = max_path_len + 1  # max number of hops (= #nodes - 1)
@@ -71,6 +82,21 @@ class BatchKGEnvironment(object):
         u_p_scores = np.dot(
             self.embeds[USER] + self.embeds[PURCHASE][0], self.embeds[PRODUCT].T
         )
+        global logger
+        start_time = time.time()
+        logger = get_logger(args.log_dir + "/train_log.txt")
+        logger.info("before loading review scores")
+        review_scores = generate_review_scores(
+            dataset_str, "train"
+        ) + generate_review_scores(dataset_str, "test")
+        elapsed_time = time.time() - start_time
+        logger.info(
+            "finished loading review scores, time used: {} seconds".format(elapsed_time)
+        )
+
+        for uid, pid, score in review_scores:
+            u_p_scores[uid][pid] += score * review_score_weight
+
         self.u_p_scales = np.max(u_p_scores, axis=1)
 
         # Compute path patterns

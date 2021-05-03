@@ -8,6 +8,7 @@ tmp/
 tags
 /.vscode
 /playground
+/play*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
