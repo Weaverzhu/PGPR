@@ -13,8 +13,6 @@ from preprocess import generate_review_scores
 from utils import *
 import time
 
-logger = None
-
 
 class KGState(object):
     def __init__(self, embed_size, history_len=1):
@@ -82,15 +80,13 @@ class BatchKGEnvironment(object):
         u_p_scores = np.dot(
             self.embeds[USER] + self.embeds[PURCHASE][0], self.embeds[PRODUCT].T
         )
-        global logger
+        print("before loading review scores")
         start_time = time.time()
-        logger = get_logger(args.log_dir + "/train_log.txt")
-        logger.info("before loading review scores")
         review_scores = generate_review_scores(
             dataset_str, "train"
         ) + generate_review_scores(dataset_str, "test")
         elapsed_time = time.time() - start_time
-        logger.info(
+        print(
             "finished loading review scores, time used: {} seconds".format(elapsed_time)
         )
 
