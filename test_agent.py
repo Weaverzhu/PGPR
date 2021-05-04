@@ -132,6 +132,7 @@ def predict_paths(policy_file, path_file, args):
         args.max_acts,
         max_path_len=args.max_path_len,
         state_history=args.state_history,
+        review_score_weight=0.0000001,
     )
     pretrain_sd = torch.load(policy_file)
     model = ActorCritic(

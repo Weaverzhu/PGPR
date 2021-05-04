@@ -284,6 +284,7 @@ def ppo_train(args):
         args.max_acts,
         max_path_len=args.max_path_len,
         state_history=args.state_history,
+        review_score_weight=0.0000001,
     )
     ppo_model = PPO(
         {
@@ -383,6 +384,7 @@ def train(args):
         args.max_acts,
         max_path_len=args.max_path_len,
         state_history=args.state_history,
+        review_score_weight=0.0000001,
     )
     uids = list(env.kg(USER).keys())
     dataloader = ACDataLoader(uids, args.batch_size)
